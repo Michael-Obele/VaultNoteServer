@@ -1,9 +1,9 @@
-import type { RequestEvent } from '@sveltejs/kit';
+import type { RequestEvent, Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { sha256 } from '@oslojs/crypto/sha2';
 import { encodeBase64url, encodeHexLowerCase } from '@oslojs/encoding';
-import { db } from '$lib/server/db';
-import * as table from '$lib/server/db/schema';
+import { db } from '$lib/server/db/prisma';
+import type { User, Session } from '@prisma/client';
 
 const DAY_IN_MS = 1000 * 60 * 60 * 24;
 
@@ -17,65 +17,65 @@ export function generateSessionToken() {
 
 export async function createSession(token: string, userId: string) {
 	const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
-	const session: table.Session = {
-		id: sessionId,
-		userId,
-		expiresAt: new Date(Date.now() + DAY_IN_MS * 30)
-	};
-	await db.insert(table.session).values(session);
+	const session = await db.session.create({
+		data: {
+			id: sessionId,
+			userId,
+			expiresAt: new Date(Date.now() + DAY_IN_MS * 30)
+		}
+	});
 	return session;
 }
 
 export async function validateSessionToken(token: string) {
 	const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
-	const [result] = await db
-		.select({
-			// Adjust user table here to tweak returned data
-			user: { id: table.user.id, username: table.user.username },
-			session: table.session
-		})
-		.from(table.session)
-		.innerJoin(table.user, eq(table.session.userId, table.user.id))
-		.where(eq(table.session.id, sessionId));
+	const session = await db.session.findUnique({
+		where: { id: sessionId },
+		include: { user: true }
+	});
 
-	if (!result) {
+	if (!session) {
 		return { session: null, user: null };
 	}
-	const { session, user } = result;
+
+	const user = session.user;
 
 	const sessionExpired = Date.now() >= session.expiresAt.getTime();
 	if (sessionExpired) {
-		await db.delete(table.session).where(eq(table.session.id, session.id));
+		await db.session.delete({ where: { id: session.id } });
 		return { session: null, user: null };
 	}
 
 	const renewSession = Date.now() >= session.expiresAt.getTime() - DAY_IN_MS * 15;
 	if (renewSession) {
-		session.expiresAt = new Date(Date.now() + DAY_IN_MS * 30);
-		await db
-			.update(table.session)
-			.set({ expiresAt: session.expiresAt })
-			.where(eq(table.session.id, session.id));
+		await db.session.update({
+			where: { id: session.id },
+			data: { expiresAt: new Date(Date.now() + DAY_IN_MS * 30) }
+		});
+		session.expiresAt = new Date(Date.now() + DAY_IN_MS * 30); // Update the session object in memory
 	}
 
 	return { session, user };
 }
 
-export type SessionValidationResult = Awaited<ReturnType<typeof validateSessionToken>>;
+export type SessionValidationResult = {
+	session: Session | null;
+	user: User | null;
+};
 
 export async function invalidateSession(sessionId: string) {
-	await db.delete(table.session).where(eq(table.session.id, sessionId));
+	await db.session.delete({ where: { id: sessionId } });
 }
 
-export function setSessionTokenCookie(event: RequestEvent, token: string, expiresAt: Date) {
-	event.cookies.set(sessionCookieName, token, {
+export function setSessionTokenCookie(cookies: Cookies, token: string, expiresAt: Date) {
+	cookies.set(sessionCookieName, token, {
 		expires: expiresAt,
 		path: '/'
 	});
 }
 
-export function deleteSessionTokenCookie(event: RequestEvent) {
-	event.cookies.delete(sessionCookieName, {
+export function deleteSessionTokenCookie(cookies: Cookies) {
+	cookies.delete(sessionCookieName, {
 		path: '/'
 	});
 }
