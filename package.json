@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"prebuild": "node --loader ts-node/esm src/lib/server/utils/route-scanner.ts generate",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -54,6 +55,7 @@
 		"@prisma/adapter-libsql": "^6.11.1",
 		"@prisma/client": "^6.11.1",
 		"mode-watcher": "^1.1.0",
-		"prisma": "^6.11.1"
+		"prisma": "^6.11.1",
+		"ts-node": "^10.9.2"
 	}
 }

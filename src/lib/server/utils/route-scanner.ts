@@ -1,4 +1,4 @@
-import { readdir, stat, readFile } from 'fs/promises';
+import { readdir, stat, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 export async function scanRoutes(baseDir: string): Promise<
@@ -71,4 +71,15 @@ export async function scanRoutes(baseDir: string): Promise<
 		console.error(`Error scanning directory ${baseDir}:`, error);
 	}
 	return routes;
+}
+
+// Self-executing function to generate the routes.json file during build
+if (process.argv[2] === 'generate') {
+	(async () => {
+		console.log('Generating routes data...');
+		const routes = await scanRoutes(join(process.cwd(), 'src', 'routes'));
+		const outputPath = join(process.cwd(), 'src', 'lib', 'generated-routes.json');
+		await writeFile(outputPath, JSON.stringify(routes, null, 2), 'utf-8');
+		console.log(`Routes data written to ${outputPath}`);
+	})();
 }

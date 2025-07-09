@@ -1,0 +1,24 @@
+[
+  {
+    "path": "/api/routes",
+    "description": "Provides a list of all server routes and their descriptions."
+  },
+  {
+    "path": "/auth/login",
+    "description": "Handles user login and session creation.",
+    "requestBody": "username: string (min 3, max 31 characters, alphanumeric only)\npassword: string (min 6, max 255 characters)",
+    "responseBody": "success:\nmessage: string (\"Login successful\")\nsessionToken: string (The generated session token)\nerror:\nmessage: string (e.g., \"Invalid username\", \"Incorrect username or password\")\nexport async function POST({ request, cookies }) {\nconst { username, password } = await request.json();"
+  },
+  {
+    "path": "/auth/logout",
+    "description": "Handles user logout and session invalidation.",
+    "requestBody": "sessionToken: string (Optional. The session token to invalidate. If not provided, will attempt to invalidate based on cookie.)",
+    "responseBody": "success:\nmessage: string (\"Logout successful\")\nerror:\nmessage: string (e.g., \"No active session or session token provided\")\nexport async function POST({ request, cookies }) {\nconst { sessionToken: requestSessionToken } = await request.json();"
+  },
+  {
+    "path": "/auth/signup",
+    "description": "Handles user registration.",
+    "requestBody": "username: string (min 3, max 31 characters, alphanumeric only)\npassword: string (min 6, max 255 characters)",
+    "responseBody": "success:\nmessage: string (\"Signup successful\")\nsessionToken: string (The generated session token)\nerror:\nmessage: string (e.g., \"Invalid username\", \"Username already taken\", \"An unknown error occurred.\")\nexport async function POST({ request, cookies }) {\nconst { username, password } = await request.json();"
+  }
+]
